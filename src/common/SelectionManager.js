@@ -58,9 +58,9 @@ function SelectionManager() {
 	}
 	
 	
-	function reportSelection(startDate, endDate, allDay, ev) {
+	function reportSelection(startDate, endDate, allDay, ev, cell, origCell) {
 		selected = true;
-		trigger('select', null, startDate, endDate, allDay, ev);
+		trigger('select', null, startDate, endDate, allDay, ev, cell, origCell);
 	}
 	
 	
@@ -72,8 +72,10 @@ function SelectionManager() {
 		if (ev.which == 1 && opt('selectable')) { // which==1 means left mouse button
 			unselect(ev);
 			var _mousedownElement = this;
-			var dates;
-			hoverListener.start(function(cell, origCell) { // TODO: maybe put cellDate/cellIsAllDay info in cell
+			var dates, cell, origCell;
+			hoverListener.start(function(_cell, _origCell) { // TODO: maybe put cellDate/cellIsAllDay info in cell
+        cell = _cell;
+        origCell = _origCell;
 				clearSelection();
 				if (cell && cellIsAllDay(cell)) {
 					dates = [ cellDate(origCell), cellDate(cell) ].sort(cmp);
@@ -88,7 +90,7 @@ function SelectionManager() {
 					if (+dates[0] == +dates[1]) {
 						reportDayClick(dates[0], true, ev);
 					}
-					reportSelection(dates[0], dates[1], true, ev);
+					reportSelection(dates[0], dates[1], true, ev, cell, origCell);
 				}
 			});
 		}

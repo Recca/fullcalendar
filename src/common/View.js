@@ -189,6 +189,9 @@ function View(element, calendar, viewName) {
 			allDay,
 			function() {
 				// TODO: investigate cases where this inverse technique might not work
+        if(t.hasLocations) {
+          event.location_id = event.previous_location_id;
+        }
 				moveEvents(eventsByID[eventId], -dayDelta, -minuteDelta, oldAllDay);
 				reportEventChange(eventId);
 			},
@@ -229,6 +232,10 @@ function View(element, calendar, viewName) {
 		minuteDelta = minuteDelta || 0;
 		for (var e, len=events.length, i=0; i<len; i++) {
 			e = events[i];
+      if(t.hasLocations) {
+        e.location_id = t.locations[(t.locationsColMapping[e.location_id] + dayDelta)].id
+        dayDelta = 0;
+      }
 			if (allDay !== undefined) {
 				e.allDay = allDay;
 			}

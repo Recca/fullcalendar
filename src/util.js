@@ -90,6 +90,7 @@ function stackSegs(segs) {
 				for (k=0; k<levels[j].length; k++) {
 					if (segsCollide(levels[j][k], seg)) {
 						collide = true;
+            seg.event.parent_id = levels[j][k].event._id
 						break;
 					}
 				}

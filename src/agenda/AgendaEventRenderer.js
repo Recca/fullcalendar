@@ -48,7 +48,9 @@ function AgendaEventRenderer() {
 	var calendar = t.calendar;
 	var formatDate = calendar.formatDate;
 	var formatDates = calendar.formatDates;
-	
+  var colMapping = t.locationsColMapping;
+
+
 	
 	
 	/* Rendering
@@ -106,24 +108,56 @@ function AgendaEventRenderer() {
 			minMinute = getMinMinute(),
 			maxMinute = getMaxMinute(),
 			d = addMinutes(cloneDate(t.visStart), minMinute),
-			visEventEnds = $.map(events, slotEventEnd),
+      visEventEnds,
+      sortedEvents = new Array(),
+      sortedVisEventEnds = new Array(),
 			i, col,
 			j, level,
 			k, seg,
 			segs=[];
+
+
+    if(t.hasLocations) {
+      for (i=0; i<colCnt; i++) {
+        sortedEvents.push([]);
+        sortedVisEventEnds.push([]);
+      }
+
+      $.each(events, function(index, e){
+        if(e.location_id == null || e.cross_display == true) { i = 0 }
+        else {i = colMapping[e.location_id]}
+
+        sortedEvents[i].push(e);
+        sortedVisEventEnds[i].push(slotEventEnd(e));
+      });
+    } else {
+      visEventEnds = $.map(events, slotEventEnd);
+    }
+
 		for (i=0; i<colCnt; i++) {
+      if(t.hasLocations){
+        events = sortedEvents[i];
+        visEventEnds = sortedVisEventEnds[i];
+      }
 			col = stackSegs(sliceSegs(events, visEventEnds, d, addMinutes(cloneDate(d), maxMinute-minMinute)));
-			countForwardSegs(col);
+			countForwardSegs(col, opt('maximumLevel'));
 			for (j=0; j<col.length; j++) {
 				level = col[j];
 				for (k=0; k<level.length; k++) {
 					seg = level[k];
 					seg.col = i;
 					seg.level = j;
-					segs.push(seg);
+          if(opt('maximumLevel') && j > opt('maximumLevel')) {
+            calendar.removeEvents(seg.event._id);
+          } else {
+            segs.push(seg);
+          }
 				}
 			}
-			addDays(d, 1, true);
+
+      if(!t.hasLocations) {
+        addDays(d, 1, true);
+      }
 		}
 		return segs;
 	}
@@ -183,7 +217,12 @@ function AgendaEventRenderer() {
 			forward = seg.forward || 0;
 			leftmost = colContentLeft(colI*dis + dit);
 			availWidth = colContentRight(colI*dis + dit) - leftmost;
-			availWidth = Math.min(availWidth-6, availWidth*.95); // TODO: move this to CSS
+      if (t.hasLocations && seg.event.cross_display == true) {
+        availWidth = availWidth*colCnt;
+      }
+      else {
+        availWidth = Math.min(availWidth-6, availWidth*.95); // TODO: move this to CSS
+      }
 			if (levelI) {
 				// indented and thin
 				outerWidth = availWidth / (levelI + forward + 1);
@@ -509,12 +548,24 @@ function AgendaEventRenderer() {
 				}
 			},
 			stop: function(ev, ui) {
-				var cell = hoverListener.stop();
+				var cell = hoverListener.stop(), startDate, endDate, location_id;
 				clearOverlays();
 				trigger('eventDragStop', eventElement, event, ev, ui);
+
 				if (cell && (dayDelta || minuteDelta || allDay)) {
-					// changed!
-					eventDrop(this, event, dayDelta, allDay ? 0 : minuteDelta, allDay, ev, ui);
+          if(t.hasLocations) {
+            location_id = t.locations[(t.locationsColMapping[event.location_id] + dayDelta)].id;
+            dayDelta = 0;
+          }
+          startDate = addMinutes(addDays(cloneDate(event.start), dayDelta, true), minuteDelta);
+          endDate = event.end ? addMinutes(addDays(cloneDate(event.end), dayDelta, true), minuteDelta) : null;
+        }
+
+        if(startDate && (!t.hasLocations || !t.collideWithOtherEvents(startDate, endDate, event, t.locations[cell.col].id))) {
+          // changed!
+          event.previous_location_id = event.location_id
+          event.location_id = location_id;
+          eventDrop(this, event, dayDelta, allDay ? 0 : minuteDelta, allDay, ev, ui);
 				}else{
 					// either no change or out-of-bounds (draggable has already reverted)
 					resetElement();
@@ -553,12 +604,15 @@ function AgendaEventRenderer() {
 		var snapDelta, prevSnapDelta;
 		var snapHeight = getSnapHeight();
 		var snapMinutes = getSnapMinutes();
+    var previousElementHeight = 0;
 		eventElement.resizable({
 			handles: {
 				s: '.ui-resizable-handle'
 			},
 			grid: snapHeight,
 			start: function(ev, ui) {
+        previousElementHeight = eventElement.height();
+        originalHeight = eventElement.height();
 				snapDelta = prevSnapDelta = 0;
 				hideEvents(event, eventElement);
 				eventElement.css('z-index', 9);
@@ -568,16 +622,23 @@ function AgendaEventRenderer() {
 				// don't rely on ui.size.height, doesn't take grid into account
 				snapDelta = Math.round((Math.max(snapHeight, eventElement.height()) - ui.originalSize.height) / snapHeight);
 				if (snapDelta != prevSnapDelta) {
-					timeElement.text(
-						formatDates(
-							event.start,
-							(!snapDelta && !event.end) ? null : // no change, so don't display time range
-								addMinutes(eventEnd(event), snapMinutes*snapDelta),
-							opt('timeFormat')
-						)
-					);
-					prevSnapDelta = snapDelta;
-				}
+          var event_end = addMinutes(eventEnd(event), snapMinutes*snapDelta);
+          if(t.collideWithOtherEvents(event.start, event_end, event, event.location_id)) {
+            snapDelta = prevSnapDelta;
+            eventElement.height(previousElementHeight).height();
+          } else {
+            timeElement.text(
+                formatDates(
+                  event.start,
+                  (!snapDelta && !event.end) ? null : // no change, so don't display time range
+                  event_end,
+                  opt('timeFormat')
+                  )
+                );
+            prevSnapDelta = snapDelta;
+            previousElementHeight = eventElement.height();
+          }
+        }
 			},
 			stop: function(ev, ui) {
 				trigger('eventResizeStop', this, event, ev, ui);
@@ -596,11 +657,11 @@ function AgendaEventRenderer() {
 }
 
 
-function countForwardSegs(levels) {
+function countForwardSegs(levels, maxLevel) {
 	var i, j, k, level, segForward, segBack;
 	for (i=levels.length-1; i>0; i--) {
 		level = levels[i];
-		for (j=0; j<level.length; j++) {
+		for (j=0; j<level.length && (!maxLevel || i <= maxLevel); j++) {
 			segForward = level[j];
 			for (k=0; k<levels[i-1].length; k++) {
 				segBack = levels[i-1][k];
@@ -611,5 +672,4 @@ function countForwardSegs(levels) {
 		}
 	}
 }
-
 

@@ -59,6 +59,7 @@ function AgendaView(element, calendar, viewName) {
 	t.reportDayClick = reportDayClick; // selection mousedown hack
 	t.dragStart = dragStart;
 	t.dragStop = dragStop;
+
 	
 	
 	// imports
@@ -334,6 +335,7 @@ function AgendaView(element, calendar, viewName) {
 	function updateCells() {
 		var i;
 		var headCell;
+		var headCellContent;
 		var bodyCell;
 		var date;
 		var today = clearTime(new Date());
@@ -350,9 +352,10 @@ function AgendaView(element, calendar, viewName) {
 		}
 
 		for (i=0; i<colCnt; i++) {
-			date = colDate(i);
+			date = (t.hasLocations ? colDate(0) : colDate(i));
 			headCell = dayHeadCells.eq(i);
-			headCell.html(formatDate(date, colFormat));
+      headCellContent = (t.hasLocations ? t.locations[i].name : formatDate(date, colFormat));
+			headCell.html(headCellContent);
 			bodyCell = dayBodyCells.eq(i);
 			if (+date == +today) {
 				bodyCell.addClass(tm + '-state-highlight fc-today');
@@ -527,14 +530,14 @@ function AgendaView(element, calendar, viewName) {
 	}
 	
 
-	function renderSlotOverlay(overlayStart, overlayEnd) {
+	function renderSlotOverlay(overlayStart, overlayEnd, _col) {
 		var dayStart = cloneDate(t.visStart);
 		var dayEnd = addDays(cloneDate(dayStart), 1);
 		for (var i=0; i<colCnt; i++) {
 			var stretchStart = new Date(Math.max(dayStart, overlayStart));
 			var stretchEnd = new Date(Math.min(dayEnd, overlayEnd));
 			if (stretchStart < stretchEnd) {
-				var col = i*dis+dit;
+				var col = _col || i*dis+dit;
 				var rect = coordinateGrid.rect(0, col, 0, col, slotContent); // only use it for horizontal coords
 				var top = timePosition(dayStart, stretchStart);
 				var bottom = timePosition(dayStart, stretchEnd);
@@ -616,7 +619,7 @@ function AgendaView(element, calendar, viewName) {
 	
 	
 	function cellDate(cell) {
-		var d = colDate(cell.col);
+		var d = colDate((t.hasLocations ? 0 : cell.col));
 		var slotIndex = cell.row;
 		if (opt('allDaySlot')) {
 			slotIndex--;
@@ -713,11 +716,11 @@ function AgendaView(element, calendar, viewName) {
 	}
 	
 	
-	function renderSlotSelection(startDate, endDate) {
+	function renderSlotSelection(startDate, endDate, _col) {
 		var helperOption = opt('selectHelper');
 		coordinateGrid.build();
 		if (helperOption) {
-			var col = dayDiff(startDate, t.visStart) * dis + dit;
+			var col = _col ? _col : dayDiff(startDate, t.visStart) * dis + dit;
 			if (col >= 0 && col < colCnt) { // only works when times are on same day
 				var rect = coordinateGrid.rect(0, col, 0, col, slotContent); // only for horizontal coords
 				var top = timePosition(startDate, startDate);
@@ -760,7 +763,7 @@ function AgendaView(element, calendar, viewName) {
 				}
 			}
 		}else{
-			renderSlotOverlay(startDate, endDate);
+			renderSlotOverlay(startDate, endDate, _col);
 		}
 	}
 	
@@ -777,20 +780,27 @@ function AgendaView(element, calendar, viewName) {
 	function slotSelectionMousedown(ev) {
 		if (ev.which == 1 && opt('selectable')) { // ev.which==1 means left mouse button
 			unselect(ev);
-			var dates;
-			hoverListener.start(function(cell, origCell) {
-				clearSelection();
+			var tmp_dates, dates, cell, origCell;
+			hoverListener.start(function(_cell, _origCell) {
+        cell = _cell;
+        origCell = _origCell;
 				if (cell && cell.col == origCell.col && !cellIsAllDay(cell)) {
 					var d1 = cellDate(origCell);
 					var d2 = cellDate(cell);
-					dates = [
-						d1,
-						addMinutes(cloneDate(d1), snapMinutes), // calculate minutes depending on selection slot minutes 
-						d2,
-						addMinutes(cloneDate(d2), snapMinutes)
-					].sort(cmp);
-					renderSlotSelection(dates[0], dates[3]);
+          tmp_dates = [
+            d1,
+            addMinutes(cloneDate(d1), snapMinutes), // calculate minutes depending on selection slot minutes 
+            d2,
+            addMinutes(cloneDate(d2), snapMinutes)
+          ].sort(cmp);
+
+          if(!t.hasLocations || !t.collideWithOtherEvents(tmp_dates[0], tmp_dates[3], null, t.locations[origCell.col].id)){
+            clearSelection();
+            dates = tmp_dates;
+            renderSlotSelection(dates[0], dates[3], (t.hasLocations ? origCell.col : null));
+          }
 				}else{
+          clearSelection();
 					dates = null;
 				}
 			}, ev);
@@ -800,7 +810,7 @@ function AgendaView(element, calendar, viewName) {
 					if (+dates[0] == +dates[1]) {
 						reportDayClick(dates[0], false, ev);
 					}
-					reportSelection(dates[0], dates[3], false, ev);
+					reportSelection(dates[0], dates[3], false, ev, cell, origCell);
 				}
 			});
 		}
@@ -826,7 +836,9 @@ function AgendaView(element, calendar, viewName) {
 				}else{
 					var d1 = cellDate(cell);
 					var d2 = addMinutes(cloneDate(d1), opt('defaultEventMinutes'));
-					renderSlotOverlay(d1, d2);
+          if(!t.hasLocations || !t.collideWithOtherEvents(d1, d2, null, t.locations[cell.col].id)){
+            renderSlotOverlay(d1, d2, (t.hasLocations ? cell.col : null));
+          }
 				}
 			}
 		}, ev);
@@ -837,7 +849,7 @@ function AgendaView(element, calendar, viewName) {
 		var cell = hoverListener.stop();
 		clearOverlays();
 		if (cell) {
-			trigger('drop', _dragElement, cellDate(cell), cellIsAllDay(cell), ev, ui);
+			trigger('drop', _dragElement, cellDate(cell), cellIsAllDay(cell), ev, ui, cell);
 		}
 	}
 

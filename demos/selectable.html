@@ -14,31 +14,73 @@
 		var d = date.getDate();
 		var m = date.getMonth();
 		var y = date.getFullYear();
+
+		$('#external-events div.external-event').each(function() {
+		
+			// create an Event Object (http://arshaw.com/fullcalendar/docs/event_data/Event_Object/)
+			// it doesn't need to have a start or end
+			var eventObject = {
+				title: $.trim($(this).text()) // use the element's text as the event title
+			};
+			
+			// store the Event Object in the DOM element so we can get to it later
+			$(this).data('eventObject', eventObject);
+			
+			// make the event draggable using jQuery UI
+			$(this).draggable({
+				zIndex: 999,
+				revert: true,      // will cause the event to go back to its
+				revertDuration: 0  //  original position after the drag
+			});
+			
+		});
+
 		
 		var calendar = $('#calendar').fullCalendar({
 			header: {
 				left: 'prev,next today',
 				center: 'title',
-				right: 'month,agendaWeek,agendaDay'
+				right: 'month,agendaWeek,agendaDay,agendaDayWithLocations'
 			},
 			selectable: true,
 			selectHelper: true,
-			select: function(start, end, allDay) {
+      defaultView: 'agendaDayWithLocations',
+      maximumLevel: 1,
+			select: function(start, end, allDay, ev, cell, origCell) {
 				var title = prompt('Event Title:');
+        var location_id = (this.locations ? this.locations[origCell.col].id : null);
 				if (title) {
 					calendar.fullCalendar('renderEvent',
 						{
 							title: title,
 							start: start,
 							end: end,
-							allDay: allDay
+							allDay: allDay,
+              location_id: location_id,
+              new: true
 						},
 						true // make the event "stick"
 					);
 				}
 				calendar.fullCalendar('unselect');
 			},
+      eventRender: function(event, element) {
+      },
 			editable: true,
+      locations: [
+      {
+        name: 'Room 1',
+        id: '1'
+      },
+      {
+        name: 'Room 2',
+        id: '2'
+      },
+      {
+        name: 'Room 3',
+        id: '3'
+      }
+      ],
 			events: [
 				{
 					title: 'All Day Event',
@@ -53,29 +95,44 @@
 					id: 999,
 					title: 'Repeating Event',
 					start: new Date(y, m, d-3, 16, 0),
+          location_id: 3,
 					allDay: false
 				},
 				{
 					id: 999,
 					title: 'Repeating Event',
 					start: new Date(y, m, d+4, 16, 0),
+          location_id: 3,
 					allDay: false
 				},
 				{
+          id: 333,
 					title: 'Meeting',
 					start: new Date(y, m, d, 10, 30),
+          location_id: 1,
 					allDay: false
 				},
 				{
 					title: 'Lunch',
 					start: new Date(y, m, d, 12, 0),
 					end: new Date(y, m, d, 14, 0),
+          location_id: 2,
 					allDay: false
 				},
+				{
+					title: 'Cross Event',
+					start: new Date(y, m, d, 15, 0),
+					end: new Date(y, m, d, 16, 0),
+          location_id: 2,
+          cross_display: true,
+					allDay: false
+				},
+
 				{
 					title: 'Birthday Party',
 					start: new Date(y, m, d+1, 19, 0),
 					end: new Date(y, m, d+1, 22, 30),
+          location_id: 3,
 					allDay: false
 				},
 				{
@@ -84,7 +141,27 @@
 					end: new Date(y, m, 29),
 					url: 'http://google.com/'
 				}
-			]
+			],
+			droppable: true, // this allows things to be dropped onto the calendar !!!
+      drop: function(start, allDay, ev, drop, cell, ui) { // this function is called when something is dropped
+				// retrieve the dropped element's stored Event Object
+				var eventObject = $(this).data('eventObject');
+        var location_id = (ui.locations ? ui.locations[cell.col].id : null);
+        if(!ui.hasLocations || !ui.collideWithOtherEvents(start, null, null, location_id)){
+
+				// render the event on the calendar
+        calendar.fullCalendar('renderEvent',
+        {
+          title: eventObject.title,
+          start: start,
+          allDay: allDay,
+          location_id: location_id,
+        },
+        true // make the event "stick"
+        );
+      }
+			}
+
 		});
 		
 	});
@@ -107,6 +184,17 @@
 </style>
 </head>
 <body>
+<div id='external-events'>
+<h4>Draggable Events</h4>
+<div class='external-event'>My Event 1</div>
+<div class='external-event'>My Event 2</div>
+<div class='external-event'>My Event 3</div>
+<div class='external-event'>My Event 4</div>
+<div class='external-event'>My Event 5</div>
+<p>
+</p>
+</div>
+
 <div id='calendar'></div>
 </body>
 </html>
