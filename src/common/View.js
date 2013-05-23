@@ -233,7 +233,9 @@ function View(element, calendar, viewName) {
 		for (var e, len=events.length, i=0; i<len; i++) {
 			e = events[i];
       if(t.hasLocations) {
-        e.location_id = t.locations[(t.locationsColMapping[e.location_id] + dayDelta)].id
+        if(!e.cross_display) {
+          e.location_id = t.locations[(t.locationsColMapping[e.location_id] + dayDelta)].id
+        }
         dayDelta = 0;
       }
 			if (allDay !== undefined) {

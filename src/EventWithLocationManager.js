@@ -39,23 +39,44 @@ function EventWithLocationManager(calendar) {
   }
 
   function collideWithOtherEvents(start, end, ev, events_or_location_id) {
-    res = eventsWithCollision.apply(t, arguments).length > 0;
-    return res;
+    return eventsWithCollision.apply(t, arguments);
   }
 
   function eventsWithCollision(start, end, ev, events_or_location_id) {
     if(!end){ end = eventEnd({start: start}); }
+    if(ev && ev.cross_display){events_or_location_id = null;}
 
-    var collision = [], 
+    var collision = false, 
         dates = [start, end].sort(cmp)
         events = getEvents(events_or_location_id);
 
 
+    var parent_event;
+    var children_event;
+    var parent_id;
+    if(ev) {
+     parent_id = ev.new_parent_id || (ev.new_parent_id == 0 ? null : ev.parent_id);
+    }
     $.each(events, function(index, e){
       var event_end = eventEnd(e);
+      //Event inside other event allowed
+      if((!ev || e._id != ev._id) && !e.allDay && ((dates[0] < e.start && dates[1] > e.start) || (dates[0] < event_end && dates[1] > event_end)) && ((!ev) || parent_id != e.id && e.parent_id != ev.id)) {
+        collision = true;
+        return false; //break jquery each
+      }
 
-      if((!ev || e._id != ev._id) && !e.allDay && ((dates[0] < e.start && dates[1] > e.start) || (dates[0] < event_end && dates[1] > event_end))) {
-        collision.push(e);
+      if(ev && (parent_id == e.id || e.parent_id == ev.id)) {
+        if(parent_id) {
+          parent_event = e;
+          children_event = { start: dates[0], end: dates[1] };
+        } else {
+          parent_event = { start: dates[0], end: dates[1] };
+          children_event = e;
+        }
+        if(parent_event.start > children_event.start || parent_event.end < children_event.end) {
+          collision = true;
+          return false; //break jquery each
+        }
       }
     });
     

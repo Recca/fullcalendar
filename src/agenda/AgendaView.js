@@ -27,6 +27,7 @@ function AgendaView(element, calendar, viewName) {
 	
 	// exports
 	t.renderAgenda = renderAgenda;
+	t.reRenderAgenda = reRenderAgenda;
 	t.setWidth = setWidth;
 	t.setHeight = setHeight;
 	t.beforeHide = beforeHide;
@@ -139,6 +140,20 @@ function AgendaView(element, calendar, viewName) {
 	
 	disableTextSelection(element.addClass('fc-agenda'));
 	
+	function reRenderAgenda(c) {
+		colCnt = c;
+		updateOptions();
+
+    if(dayTable) {
+      clearEvents();
+      dayTable.remove();
+      dayTable = undefined;
+    }
+
+    buildSkeleton();
+		updateCells();
+	}
+
 	
 	function renderAgenda(c) {
 		colCnt = c;
@@ -376,12 +391,15 @@ function AgendaView(element, calendar, viewName) {
 		slotTopCache = {};
 	
 		var headHeight = dayBody.position().top;
-		var allDayHeight = slotScroller.position().top; // including divider
-		var bodyHeight = Math.min( // total body height, including borders
-			height - headHeight,   // when scrollbars
-			slotTable.height() + allDayHeight + 1 // when no scrollbars. +1 for bottom border
-		);
-		
+    if(opt('allDaySlot')) {
+      var allDayHeight = slotScroller.position().top; // including divider
+      var bodyHeight = Math.min( // total body height, including borders
+          height - headHeight,   // when scrollbars
+          slotTable.height() + allDayHeight + 1 // when no scrollbars. +1 for bottom border
+          );
+    } else {
+      var bodyHeight = height - headHeight;
+    }
 		dayBodyFirstCellStretcher
 			.height(bodyHeight - vsides(dayBodyFirstCell));
 		
@@ -771,6 +789,7 @@ function AgendaView(element, calendar, viewName) {
 	function clearSelection() {
 		clearOverlays();
 		if (selectionHelper) {
+      selectionHelper.draggable( "destroy" );
 			selectionHelper.remove();
 			selectionHelper = null;
 		}
@@ -798,6 +817,10 @@ function AgendaView(element, calendar, viewName) {
             clearSelection();
             dates = tmp_dates;
             renderSlotSelection(dates[0], dates[3], (t.hasLocations ? origCell.col : null));
+            selectionHelper.draggable({
+              axis: "x"
+            });
+            selectionHelper.data('draggable')._mouseStart(ev);
           }
 				}else{
           clearSelection();
@@ -806,6 +829,7 @@ function AgendaView(element, calendar, viewName) {
 			}, ev);
 			$(document).one('mouseup', function(ev) {
 				hoverListener.stop();
+        selectionHelper.data('draggable')._mouseStop(jQuery.Event("mouseup"));
 				if (dates) {
 					if (+dates[0] == +dates[1]) {
 						reportDayClick(dates[0], false, ev);

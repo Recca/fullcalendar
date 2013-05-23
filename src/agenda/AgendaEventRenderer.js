@@ -48,7 +48,6 @@ function AgendaEventRenderer() {
 	var calendar = t.calendar;
 	var formatDate = calendar.formatDate;
 	var formatDates = calendar.formatDates;
-  var colMapping = t.locationsColMapping;
 
 
 	
@@ -116,7 +115,6 @@ function AgendaEventRenderer() {
 			k, seg,
 			segs=[];
 
-
     if(t.hasLocations) {
       for (i=0; i<colCnt; i++) {
         sortedEvents.push([]);
@@ -125,10 +123,12 @@ function AgendaEventRenderer() {
 
       $.each(events, function(index, e){
         if(e.location_id == null || e.cross_display == true) { i = 0 }
-        else {i = colMapping[e.location_id]}
+        else {i = t.locationsColMapping[e.location_id]}
 
-        sortedEvents[i].push(e);
-        sortedVisEventEnds[i].push(slotEventEnd(e));
+        if(sortedEvents[i]) {
+          sortedEvents[i].push(e);
+          sortedVisEventEnds[i].push(slotEventEnd(e));
+        }
       });
     } else {
       visEventEnds = $.map(events, slotEventEnd);
@@ -147,8 +147,9 @@ function AgendaEventRenderer() {
 					seg = level[k];
 					seg.col = i;
 					seg.level = j;
+          seg.event.forward = seg.forward;
           if(opt('maximumLevel') && j > opt('maximumLevel')) {
-            calendar.removeEvents(seg.event._id);
+            //calendar.removeEvents(seg.event._id);
           } else {
             segs.push(seg);
           }
@@ -196,7 +197,9 @@ function AgendaEventRenderer() {
 			height,
 			slotSegmentContainer = getSlotSegmentContainer(),
 			rtl, dis, dit,
-			colCnt = getColCnt();
+			colCnt = getColCnt(),
+      levelIndent = opt('levelIndent'),
+      indentResize = (opt('indentResize') == undefined) || opt('indentResize');
 			
 		if (rtl = opt('isRTL')) {
 			dis = -1;
@@ -223,7 +226,7 @@ function AgendaEventRenderer() {
       else {
         availWidth = Math.min(availWidth-6, availWidth*.95); // TODO: move this to CSS
       }
-			if (levelI) {
+			if (levelI && indentResize) {
 				// indented and thin
 				outerWidth = availWidth / (levelI + forward + 1);
 			}else{
@@ -235,8 +238,12 @@ function AgendaEventRenderer() {
 					outerWidth = availWidth;
 				}
 			}
+
+      var indentation;
+      if(isNaN(levelIndent)) {indentation = (availWidth / (levelI + forward + 1) * levelI);}
+      else { indentation = levelIndent * levelI; }
 			left = leftmost +                                  // leftmost possible
-				(availWidth / (levelI + forward + 1) * levelI) // indentation
+				indentation // indentation
 				* dis + (rtl ? availWidth - outerWidth : 0);   // rtl
 			seg.top = top;
 			seg.left = left;
@@ -458,6 +465,7 @@ function AgendaEventRenderer() {
 				clearOverlays();
 				trigger('eventDragStop', eventElement, event, ev, ui);
 				if (revert) {
+          trigger('eventDragRevert', eventElement, event);
 					// hasn't moved or is out of bounds (draggable has already reverted)
 					resetElement();
 					eventElement.css('filter', ''); // clear IE opacity side-effects
@@ -515,6 +523,8 @@ function AgendaEventRenderer() {
 				origPosition = eventElement.position();
 				minuteDelta = prevMinuteDelta = 0;
 				hoverListener.start(function(cell, origCell, rowDelta, colDelta) {
+          if(!cell) {
+          }
 					eventElement.draggable('option', 'revert', !cell);
 					clearOverlays();
 					if (cell) {
@@ -554,7 +564,10 @@ function AgendaEventRenderer() {
 
 				if (cell && (dayDelta || minuteDelta || allDay)) {
           if(t.hasLocations) {
-            location_id = t.locations[(t.locationsColMapping[event.location_id] + dayDelta)].id;
+            location_id = event.location_id;
+            if(!event.cross_display) {
+              location_id = t.locations[(t.locationsColMapping[event.location_id] + dayDelta)].id;
+            }
             dayDelta = 0;
           }
           startDate = addMinutes(addDays(cloneDate(event.start), dayDelta, true), minuteDelta);
@@ -568,6 +581,7 @@ function AgendaEventRenderer() {
           eventDrop(this, event, dayDelta, allDay ? 0 : minuteDelta, allDay, ev, ui);
 				}else{
 					// either no change or out-of-bounds (draggable has already reverted)
+          trigger('eventDragRevert', eventElement, event);
 					resetElement();
 					eventElement.css('filter', ''); // clear IE opacity side-effects
 					eventElement.css(origPosition); // sometimes fast drags make event revert to wrong position
