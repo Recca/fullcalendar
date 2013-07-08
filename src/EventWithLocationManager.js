@@ -1,4 +1,3 @@
-
 function EventWithLocationManager(calendar) {
   var t = this;
 
@@ -44,7 +43,7 @@ function EventWithLocationManager(calendar) {
 
   function eventsWithCollision(start, end, ev, events_or_location_id) {
     if(!end){ end = eventEnd({start: start}); }
-    if(ev && ev.cross_display){events_or_location_id = null;}
+    if(ev && ev.cross_display && !ev.parent_id){events_or_location_id = null;}
 
     var collision = false, 
         dates = [start, end].sort(cmp)
@@ -59,13 +58,29 @@ function EventWithLocationManager(calendar) {
     }
     $.each(events, function(index, e){
       var event_end = eventEnd(e);
-      //Event inside other event allowed
-      if((!ev || e._id != ev._id) && !e.allDay && ((dates[0] < e.start && dates[1] > e.start) || (dates[0] < event_end && dates[1] > event_end)) && ((!ev) || parent_id != e.id && e.parent_id != ev.id)) {
-        collision = true;
-        return false; //break jquery each
-      }
 
-      if(ev && (parent_id == e.id || e.parent_id == ev.id)) {
+      //Event inside other event allowed
+      if(
+        (!ev //Si ce n'est pas un event (selection pour creation)
+         ||
+         e._id != ev._id //Ne pas faire le test sur l'event lui même
+         &&
+         (parent_id != e.id && e.parent_id != ev.id) //Ne pas prendre en compte les enfants
+        )
+        &&
+        !e.allDay // Ne pas tester les event qui occupe toute la journée
+        &&
+        (!e.cross_display && e.parent_id || !e.parent_id) // Ne pas tester les enfant cross_display
+        &&
+        ((dates[0] < e.start && dates[1] > e.start) || (dates[0] < event_end && dates[1] > event_end)) //Si intersection des dates
+        ) {
+          collision = true;
+          return false; //break jquery each
+        }
+
+      //Test sur les enfants, ne dépacent pas du parent
+      //test désactivé pour les parents car les enfants sont déplacés en même temps.
+      if(ev && (parent_id == e.id || e.parent_id == ev.id) && parent_id) {
         if(parent_id) {
           parent_event = e;
           children_event = { start: dates[0], end: dates[1] };
@@ -73,6 +88,7 @@ function EventWithLocationManager(calendar) {
           parent_event = { start: dates[0], end: dates[1] };
           children_event = e;
         }
+
         if(parent_event.start > children_event.start || parent_event.end < children_event.end) {
           collision = true;
           return false; //break jquery each

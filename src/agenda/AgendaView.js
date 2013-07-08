@@ -310,7 +310,7 @@ function AgendaView(element, calendar, viewName) {
 				.appendTo(slotScroller);
 				
 		slotSegmentContainer =
-			$("<div style='position:absolute;z-index:8;top:0;left:0'/>")
+			$("<div style='z-index:8;top:0;left:0'/>")
 				.appendTo(slotContent);
 		
 		s =

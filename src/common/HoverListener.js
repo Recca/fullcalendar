@@ -14,7 +14,7 @@ function HoverListener(coordinateGrid) {
 		firstCell = cell = null;
 		coordinateGrid.build();
 		mouse(ev);
-		bindType = _bindType || 'mousemove';
+		bindType = _bindType || 'mousemove.fullcalendar';
 		$(document).bind(bindType, mouse);
 	};
 	

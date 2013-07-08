@@ -148,9 +148,7 @@ function AgendaEventRenderer() {
 					seg.col = i;
 					seg.level = j;
           seg.event.forward = seg.forward;
-          if(opt('maximumLevel') && j > opt('maximumLevel')) {
-            //calendar.removeEvents(seg.event._id);
-          } else {
+          if(!opt('maximumLevel') || j <= opt('maximumLevel')) {
             segs.push(seg);
           }
 				}
@@ -221,18 +219,22 @@ function AgendaEventRenderer() {
 			leftmost = colContentLeft(colI*dis + dit);
 			availWidth = colContentRight(colI*dis + dit) - leftmost;
       if (t.hasLocations && seg.event.cross_display == true) {
+        if(seg.event.parent_id) {
+          levelI = levelI-1;
+        }
         availWidth = availWidth*colCnt;
       }
-      else {
-        availWidth = Math.min(availWidth-6, availWidth*.95); // TODO: move this to CSS
-      }
-			if (levelI && indentResize) {
+      availWidth = Math.min(availWidth-6, availWidth*.95); // TODO: move this to CSS
+			if (levelI && (indentResize || event.cross_display)) {
 				// indented and thin
 				outerWidth = availWidth / (levelI + forward + 1);
 			}else{
 				if (forward) {
 					// moderately wide, aligned left still
 					outerWidth = ((availWidth / (forward + 1)) - (12/2)) * 2; // 12 is the predicted width of resizer =
+          if(event.cross_display) {
+            outerWidth = availWidth / (forward + 1);
+          }
 				}else{
 					// can be entire width, aligned left
 					outerWidth = availWidth;
@@ -240,7 +242,7 @@ function AgendaEventRenderer() {
 			}
 
       var indentation;
-      if(isNaN(levelIndent)) {indentation = (availWidth / (levelI + forward + 1) * levelI);}
+      if(isNaN(levelIndent) || event.cross_display) {indentation = (availWidth / (levelI + forward + 1) * levelI);}
       else { indentation = levelIndent * levelI; }
 			left = leftmost +                                  // leftmost possible
 				indentation // indentation
@@ -304,7 +306,16 @@ function AgendaEventRenderer() {
 		for (i=0; i<segCnt; i++) {
 			seg = segs[i];
 			if (eventElement = seg.element) {
+
+      if (t.hasLocations && seg.event.cross_display == true && !seg.event.parent_id) {
+        eventElement[0].style.width = '94%';
+        if(seg.event.parent_id) {
+          //var tmp = Math.round(90/2);
+          //eventElement[0].style.width = tmp+'%';
+        }
+      } else {
 				eventElement[0].style.width = Math.max(0, seg.outerWidth - seg.hsides) + 'px';
+      }
 				height = Math.max(0, seg.outerHeight - seg.vsides);
 				eventElement[0].style.height = height + 'px';
 				event = seg.event;
@@ -558,20 +569,21 @@ function AgendaEventRenderer() {
 				}
 			},
 			stop: function(ev, ui) {
-				var cell = hoverListener.stop(), startDate, endDate, location_id;
+				var cell = hoverListener.stop(), startDate, endDate, location_id, tmpDayDelta;
 				clearOverlays();
 				trigger('eventDragStop', eventElement, event, ev, ui);
+        tmpDayDelta = dayDelta;
 
 				if (cell && (dayDelta || minuteDelta || allDay)) {
           if(t.hasLocations) {
             location_id = event.location_id;
-            if(!event.cross_display) {
-              location_id = t.locations[(t.locationsColMapping[event.location_id] + dayDelta)].id;
-            }
-            dayDelta = 0;
+            //if(!event.cross_display) {
+            //  location_id = t.locations[(t.locationsColMapping[event.location_id] + dayDelta)].id;
+            //}
+            tmpDayDelta = 0;
           }
-          startDate = addMinutes(addDays(cloneDate(event.start), dayDelta, true), minuteDelta);
-          endDate = event.end ? addMinutes(addDays(cloneDate(event.end), dayDelta, true), minuteDelta) : null;
+          startDate = addMinutes(addDays(cloneDate(event.start), tmpDayDelta, true), minuteDelta);
+          endDate = event.end ? addMinutes(addDays(cloneDate(event.end), tmpDayDelta, true), minuteDelta) : null;
         }
 
         if(startDate && (!t.hasLocations || !t.collideWithOtherEvents(startDate, endDate, event, t.locations[cell.col].id))) {
@@ -587,6 +599,7 @@ function AgendaEventRenderer() {
 					eventElement.css(origPosition); // sometimes fast drags make event revert to wrong position
 					updateTimeText(0);
 					showEvents(event, eventElement);
+          trigger('eventDragReverted', eventElement, event);
 				}
 			}
 		});

@@ -17,6 +17,7 @@ function AgendaDayWithLocationsView(element, calendar) {
   t.locationsLimit = calendar.options.locationsLimit;
   t.locationsStartAt = calendar.options.locationsStartAt;
   t.reloadContentHeight = reloadContentHeight;
+  t.resetLocations =  resetLocations;
 
 
 	
@@ -113,4 +114,11 @@ function AgendaDayWithLocationsView(element, calendar) {
     }
 	}
 
+  function resetLocations(newLocations) {
+    locations = newLocations;
+    t.locations = locations;
+    init();
+    reRender();
+    reloadContentHeight();
+  }
 }

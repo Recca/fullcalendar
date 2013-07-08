@@ -230,20 +230,21 @@ function View(element, calendar, viewName) {
 	
 	function moveEvents(events, dayDelta, minuteDelta, allDay) {
 		minuteDelta = minuteDelta || 0;
+    var tmpDayDelta = dayDelta;
 		for (var e, len=events.length, i=0; i<len; i++) {
 			e = events[i];
       if(t.hasLocations) {
         if(!e.cross_display) {
           e.location_id = t.locations[(t.locationsColMapping[e.location_id] + dayDelta)].id
         }
-        dayDelta = 0;
+        tmpDayDelta = 0;
       }
 			if (allDay !== undefined) {
 				e.allDay = allDay;
 			}
-			addMinutes(addDays(e.start, dayDelta, true), minuteDelta);
+			addMinutes(addDays(e.start, tmpDayDelta, true), minuteDelta);
 			if (e.end) {
-				e.end = addMinutes(addDays(e.end, dayDelta, true), minuteDelta);
+				e.end = addMinutes(addDays(e.end, tmpDayDelta, true), minuteDelta);
 			}
 			normalizeEvent(e, options);
 		}
