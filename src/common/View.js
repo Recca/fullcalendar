@@ -137,14 +137,14 @@ function View(element, calendar, viewName) {
 						return trigger('eventClick', this, event, ev);
 					}
 			})
-			.hover(
+			.mouseenter(
 				function(ev) {
 					trigger('eventMouseover', this, event, ev);
-				},
+				})
+			.mouseleave(
 				function(ev) {
 					trigger('eventMouseout', this, event, ev);
-				}
-			);
+				});
 		// TODO: don't fire eventMouseover/eventMouseout *while* dragging is occuring (on subject element)
 		// TODO: same for resizing
 	}
