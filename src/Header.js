@@ -94,19 +94,19 @@ function Header(calendar, options) {
 								.mouseup(function() {
 									button.removeClass(tm + '-state-down');
 								})
-								.hover(
+								.mouseenter(
 									function() {
 										button
 											.not('.' + tm + '-state-active')
 											.not('.' + tm + '-state-disabled')
 											.addClass(tm + '-state-hover');
-									},
+									})
+								.mouseleave(
 									function() {
 										button
 											.removeClass(tm + '-state-hover')
 											.removeClass(tm + '-state-down');
-									}
-								)
+									})
 								.appendTo(e);
 							disableTextSelection(button);
 							if (!prevButton) {
